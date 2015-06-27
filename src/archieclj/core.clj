@@ -6,11 +6,11 @@
 (declare process-scope)
 (declare process-array)
 
-(defn split-lines
+(defn trim-split-lines
   "Splits a text file to multiple lines"
   [x]
   (map string/trim
-       (string/split x #"\n")))
+       (split-lines x)))
 
 (defn get-map
   "takes a map and a keyword. Returns the map on the keyword if it exists. otherwise returns an empty map."
@@ -228,7 +228,7 @@
   "Parses an Archieml string and returns a map"
   [x]
   (->> x
-      split-lines
+      trim-split-lines
       (take-while (fn [d] (not (is-command? d "ignore"))))
       skip
       parse-lines))

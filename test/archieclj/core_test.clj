@@ -300,12 +300,12 @@
 
 (deftest split-line-test
   (testing "spliting lines"
-    (is (= (split-lines "foo\nbar")
+    (is (= (trim-split-lines "foo\nbar")
            ["foo" "bar"]))))
 
 (deftest split-line-test-2
   (testing "whitespace removal in splitlines"
-    (is (= (split-lines " foo\nbar ")
+    (is (= (trim-split-lines " foo\nbar ")
            ["foo" "bar"]))))
 
 ;; is-command?
