@@ -7,14 +7,14 @@
 (defn split-lines
   "Splits a text file to multiple lines"
   [x]
-  (seq (string/split x #"\n")))
+  (map string/trim
+       (string/split x #"\n")))
 
 (defn is-command?
   "Returns the command if a line contains a command nil-otherwise.
   optionally takes a string and returns true if the command matches the string."
   ([x]
-   (if (not (re-find #"\\:([a-zA-Z-]+)" x))
-     (get (re-find #":([a-zA-Z-]+)" x) 1)))
+    (get (re-find #"^:([a-z]+)" x) 1))
   ([x y]
    (let [c (is-command? x)]
      (if c (.startsWith c y)))))
@@ -22,25 +22,24 @@
 (defn is-key?
   "Returns the key, nil otherwise"
   [x]
-  (if (not (re-find #"\\([a-zA-Z-]+):" x))
-    (get (re-find #"([a-zA-Z-]+):" x) 1)))
+  (get (re-find #"^([a-zA-Z0-9-_.]+):" x) 1))
 
 (defn is-array?
   "returns the array if true, nil otherwise"
   [x]
-  (get (re-find #"\[([a-zA-Z-.]*)\]"
+  (get (re-find #"^\[([a-zA-Z0-9-_.]*)\]"
                 x) 1))
 
 (defn is-scope?
   "returns the scope if true, nil otherwise"
   [x]
-  (get (re-find #"\{([a-zA-Z-.]*)\}"
+  (get (re-find #"^\{([a-zA-Z0-9-_.]*)\}"
                 x) 1))
 
 (defn is-item?
   "returns true if the line is a list item, nil otherwise"
   [x]
-  (boolean (re-find #"\*" x)))
+  (boolean (re-find #"^\*" x)))
 
 (defn is-token?
   "Returns true if a line contains a token"
@@ -52,11 +51,10 @@
   "parses a line with a key and amends the object.
   returns a vector with the rest of the lines as the first object and the object as the second."
   [lines obj]
-  (let [m (re-find #"([a-zA-Z.-]+):[ ]{0,1}(.*)" (first lines))
+  (let [m (re-find #"^([a-zA-Z0-9-_.]+):[ ]{0,1}(.*)" (first lines))
         k (get m 1)
         v (get m 2)
         totoken (drop-while (fn[x] (not (is-token? x))) (rest lines))]
-    (println totoken)
     (if (and (first totoken)
              (is-command? (first totoken) "end"))
       [(rest totoken)
@@ -70,12 +68,20 @@
                                  (rest lines)))))]
       [(rest lines) (assoc obj (keyword k) v)])))
 
+(defn skip
+  "skips the lines until :endskip"
+  [lines obj]
+  [(rest (drop-while (fn [x] (not (is-command? x "endskip")))
+               lines)) obj])
+
 (defn parse-line
   "Parses a line and returns a changed returns an array of the remaining lines and the modified return object"
   [lines obj]
   (if (< (count lines) 1)
     [[] obj]
-    (let [tokens [[is-key? parse-key]]]
+    (let [tokens [[is-key? parse-key]
+                  [(fn [x] (is-command? x "skip")) skip]
+                  ]]
       (reduce (fn [x y] (if ((get y 0) (first lines))
                           ((get y 1) lines obj)
                           x))
