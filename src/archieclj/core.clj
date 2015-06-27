@@ -10,7 +10,7 @@
   "Splits a text file to multiple lines"
   [x]
   (map string/trim
-       (split-lines x)))
+       (string/split-lines x)))
 
 (defn get-map
   "takes a map and a keyword. Returns the map on the keyword if it exists. otherwise returns an empty map."
@@ -38,6 +38,12 @@
   (get (re-find #"^\[([a-zA-Z0-9-_.]*)\]"
                 x) 1))
 
+(defn is-subarray?
+  "returns true on subarray, false otherwise"
+  [x]
+  (and (is-array? x)
+       (.startsWith (is-array? x) ".")))
+
 (defn is-scope?
   "returns the scope if true, nil otherwise"
   [x]
@@ -52,13 +58,16 @@
 (defn is-token?
   "Returns true if a line contains a token"
   [x]
-  (let [tokens [is-command? is-key? is-array? is-scope? is-item?]]
+  (let [tokens [is-command? is-key? is-array? is-scope?]]
     (boolean (reduce (fn [r t] (or (t x) r)) false tokens))))
 
 (defn expand-scopes
   "expands the scopes for scoped tokens and sets the value"
   [t obj value]
-  (let [s (string/split t #"\." 2)
+  (let [s (string/split (if (.startsWith t ".")
+                          (subs t 1)
+                          t)
+                        #"\." 2)
         kw (keyword (first s))]
     (if (get s 1)
       (assoc obj kw (expand-scopes (get s 1) (get-map obj kw) value))
@@ -186,19 +195,56 @@
                          (not (is-key? x))
                          (not (is-item? x))))
                       lines)]
-    (if (is-key? (first l))
-      (parse-key-array l)
-      (parse-item-array l))))
+    (if (first l)
+      (if (is-key? (first l))
+        (parse-key-array l)
+        (parse-item-array l))
+      [])))
 
+(defn take-array
+  "takes array while escape is not met"
+  [lines]
+  (loop [l lines sa 0 ret []]
+    (let [a (is-array? (first l))]
+      (if (not a)
+        (recur (rest l) sa (conj ret (first l)))
+        (if (and
+             (not (= a ""))
+             (not (.startsWith a ".")))
+          ret
+          (if (= a "")
+            (if (= sa 0)
+              ret
+              (recur (rest l) (- sa 1) (conj ret (first l))))
+            (recur (rest l) (+ sa 1) (conj ret (first l)))))))))
 
+(defn drop-array
+  "drops until escape is met"
+  [lines]
+  (loop [l lines sa 0]
+    (let [a (is-array? (first l))]
+      (if (not a)
+        (recur (vec (rest l)) sa)
+        (if (and
+             (not (= a ""))
+             (not (.startsWith a ".")))
+          l
+          (if (= a "")
+            (if (= sa 0)
+              l
+              (recur (vec (rest l)) (- sa 1)))
+            (recur (vec (rest l)) (+ sa 1))))))))
+    
 (defn process-array
   "processes a scope. Takes lines and an object.
   Returns a vector of lines and an object"
   [lines obj]
   (let [array (is-array? (first lines))
-        matchfn (fn [x] (and
-                         (not (is-scope? x))
-                         (not (is-array? x))))
+        matchfn (fn [x] (or (and
+                             (not (is-scope? x))
+                             (not (is-array? x)))
+                            (and
+                             (is-subarray? x))))
         content (take-while matchfn
                             (rest lines))
         rlines (drop-while matchfn

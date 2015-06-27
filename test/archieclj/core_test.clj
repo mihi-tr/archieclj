@@ -254,6 +254,58 @@
                                              {:key "array"}]}
                     {:key "main array"}]}))))
 
+(deftest subarray-array
+  (testing "subarray array"
+    (is (= (parse
+            "[token]
+             [.key]
+             * one
+             * two
+             []
+             [.key]
+             * three
+             * four
+             []")
+           {:token [{:key ["one" "two"]} {:key ["three" "four"]}]}))))
+
+(deftest escaping-subarray-2
+  (testing "escaping nested arrays"
+    (is (= (parse
+            "[token]
+             [.key]
+             * one
+             * two
+             []
+             [.key]
+             * tree
+             * four
+             []
+             []
+             key: main")
+           {:token [{:key ["one" "two"]}
+                    {:key ["three" "four"]}],
+            :key "main"}))))
+
+(deftest empty-stuff
+  (testing "empty stuff"
+    (is (= (parse
+            "key:
+             [token]
+             {token2}
+             [token3]
+             {}
+             ")
+           {:key "", :token [],
+            :token2 {}, :token3 []}))))
+
+(deftest escape-backslash
+  (testing "escape-backslash"
+    (is (= (parse
+            "key: an
+             \\:end
+             :end")
+           {:key "an\n:end"}))))
+
 ;; is-token?
 
 (deftest token-detection-1
@@ -279,10 +331,6 @@
 (deftest token-detection-6
   (testing "detecting []"
     (is (= (is-token? "[]") true))))
-
-(deftest token-detection-7
-  (testing "detecting *"
-    (is (= (is-token? "*") true))))
 
 (deftest token-detection-8
   (testing "detecting token: value"
@@ -572,3 +620,40 @@
     (is (= (expand-scopes "token.key2" {:token {:key "value"}}
                           "value2")
            {:token {:key "value", :key2 "value2"}}))))
+
+;; take-array
+
+(deftest take-array-1
+  (testing "simple take array"
+    (is (= (take-array ["one" "[]" "two"])
+           ["one"]))))
+
+(deftest take-array-2
+  (testing "take array with other named array"
+    (is (= (take-array ["one" "[token]" "two"])
+           ["one"]))))
+
+(deftest take-array-3
+  (testing "take array with subarray"
+    (is (= (take-array ["one" "[.subarray]" "two" "[]"
+                        "three" "[]" "four"])
+           ["one" "[.subarray]" "two" "[]" "three"]))))
+
+;; drop-array
+
+(deftest drop-array-1
+  (testing "simple drop array"
+    (is (= (drop-array ["one" "[]" "two"])
+           ["[]" "two"]))))
+
+(deftest drop-array-2
+  (testing "drop array with named array"
+    (is (= (drop-array ["one" "[token]" "two"])
+           ["[token]" "two"]))))
+
+(deftest drop-array-3
+  (testing "drop array with subarray"
+    (is (= (drop-array ["one" "[.sub]"
+                        "two" "[]" "not yet"
+                        "[]" "now"])
+           ["[]" "now"]))))
