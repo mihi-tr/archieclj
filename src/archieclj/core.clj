@@ -4,6 +4,7 @@
 
 
 (declare process-scope)
+(declare process-array)
 
 (defn split-lines
   "Splits a text file to multiple lines"
@@ -116,6 +117,7 @@
     (let [tokens [
                   [is-key? parse-key] ; parse keys
                   [is-scope? process-scope] ; process scopes
+                  [is-array? process-array] ; process array
                   ]]
       (reduce (fn [x y] (if ((get y 0) (first lines))
                           ((get y 1) lines obj)
@@ -137,7 +139,62 @@
              rt (get po 1)]
           (recur lns rt))
        ret))))
-     
+
+(defn parse-key-array
+  "takes lines and returns an array of objects"
+  [lines]
+  []
+  )
+
+(defn parse-item-array
+  "takes lines and returns an array of items"
+  [lines]
+  (loop [lns lines ret []]
+    (if (first lns)
+      (let [v (get (re-find #"^* (.*)" (first lns)) 1)
+            matchfn (fn [x] (and
+                             (not (is-item? x))
+                             (not (is-command? x "end"))))
+            ltn (take-while matchfn (rest lns))
+            al (drop-while matchfn (rest lns))]
+        (if (and (first al)
+                 (is-command? (first al) "end"))
+          (recur (rest al) (conj ret
+                                 (string/join
+                                  "\n"
+                                  (cons v ltn))))
+          (recur al (conj ret v))))
+      ret)))
+
+(defn parse-array
+  "takes lines and parses an array"
+  [lines]
+  (let [l (drop-while (fn [x]
+                        (and
+                         (not (is-key? x))
+                         (not (is-item? x))))
+                      lines)]
+    (if (is-key? (first l))
+      (parse-key-array l)
+      (parse-item-array l))))
+
+
+(defn process-array
+  "processes a scope. Takes lines and an object.
+  Returns a vector of lines and an object"
+  [lines obj]
+  (let [array (is-array? (first lines))
+        matchfn (fn [x] (and
+                         (not (is-scope? x))
+                         (not (is-array? x))))
+        content (take-while matchfn
+                            (rest lines))
+        rlines (drop-while matchfn
+                           (rest lines))]
+    (if (= "" array)
+      [(rest lines) obj]
+      [rlines (expand-scopes array obj (parse-array content))])))
+
 (defn process-scope
   "processes a scope. Takes lines and an object.
   returns a vector of lines and an object"
