@@ -11,6 +11,12 @@
   (map string/trim
        (string/split x #"\n")))
 
+(defn get-map
+  "takes a map and a keyword. Returns the map on the keyword if it exists. otherwise returns an empty map."
+  [m kw]
+  (let [r (kw m)]
+    (if (map? r) r {})))
+  
 (defn is-command?
   "Returns the command if a line contains a command nil-otherwise.
   optionally takes a string and returns true if the command matches the string."
@@ -126,7 +132,7 @@
                             (rest lines))
         rlines (drop-while matchfn
                                  (rest lines))
-        sco (scope obj {})]
+        sco (get-map obj scope)]
     (if (= (keyword "") scope)
       [(rest lines) obj]
       [rlines (assoc obj scope (parse-lines content sco))])))

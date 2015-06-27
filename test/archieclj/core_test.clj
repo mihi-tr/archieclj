@@ -77,7 +77,7 @@
            {:token {:key "value"}, :token2 {:key2 "value2"}}))))
 
 (deftest back-to-main-scope
-  (testing "switching-back-to-main-scope"
+  (testing "switching-back to main scope"
     (is (= (parse
             "{token}
              key: value
@@ -96,6 +96,52 @@
              key2: value2")
            {:token {:key "value", :key2 "value2"}}))))
 
+(deftest appending-scope
+  (testing "appending scope"
+    (is (= (parse
+            "{token}
+             key: value
+             {}
+             key2: value2
+             {token}
+             key3: value3")
+           {:token {:key "value", :key3 "value3"},
+            :key2 "value2"}))))
+
+(deftest scope-over-prior-key
+  (testing "overwriting a key with a scope"
+    (is (= (parse
+            "token: value
+             {token}
+             key: value")
+           {:token {:key "value"}}))))
+
+(deftest scoped-key
+  (testing "scoped keys"
+    (is (= (parse
+            "token.key: value")
+           {:token {:key "value"}}))))
+
+(deftest multi-scoped-keys
+  (testing "multi-scoped keys"
+    (is (= (parse
+            "t.o.k.e.n: value")
+           {:t {:o {:k {:e {:n "value"}}}}}))))
+
+(deftest appending-scoped-keys
+  (testing "appending scoped keys"
+    (is (= (parse
+            "token.key: value
+             token.key2: value2")
+           {:token {:key "value", :key2 "value2"}}))))
+
+(deftest scoped-scopes
+  (testing "scoped scopes"
+    (is (= (parse
+            "{to.ken}
+             key: value")
+           {:to {:ken {:key "value"}}}))))
+           
 ;; is-token?
 
 (deftest token-detection-1
@@ -374,3 +420,20 @@
                            {})
             1)
            {:token {:key "value"}}))))
+
+;; get-map
+
+(deftest get-map-1
+  (testing "getting a map"
+    (is (= (get-map {} :token)
+           {}))))
+
+(deftest get-map-2
+  (testing "getting a pre-existing map"
+    (is (= (get-map {:token {:key "value"}} :token)
+           {:key "value"}))))
+
+(deftest get-map-3
+  (testing "getting a map from a non map key"
+    (is (= (get-map {:token "value"} :token)
+           {}))))
