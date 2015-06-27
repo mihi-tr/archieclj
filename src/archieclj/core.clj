@@ -149,22 +149,54 @@
           (recur lns rt))
        ret))))
 
-(defn parse-key-array
-  "takes lines and returns an array of objects"
-  [lines]
-  (let [delimiter (is-key? (first lines))]
+(defn take-delimited-array
+  "takes lines and a check function - ignores subarrays"
+  [dfn lines]
+  (loop [lns lines sa 0 ret []]
+    (if (empty? lns)
+          ret
+      (if (and (dfn (first lns))
+               (<= sa 0))
+            ret
+        (if (is-subarray? (first lns))
+          (recur (rest lns) (+ sa 1) (conj ret (first lns)))
+          (if (= (is-array? (first lns)) "")
+            (recur (rest lns) (- sa 1) (conj ret (first lns)))
+            (recur (rest lns) sa (conj ret (first lns)))))))))
+
+(defn drop-delimited-array
+  "drops lines - takes the check function and ignores subarrays"
+  [dfn lines]
+  (loop [lns lines sa 0]
+    (if (empty? lns)
+      []
+      (if (and (dfn (first lns))
+               (<= sa 0))
+        lns
+        (if (is-subarray? (first lns))
+          (recur (vec (rest lns)) (+ sa 1))
+          (if (= (is-array? (first lns)) "")
+            (recur (vec (rest lns)) (- sa 1))
+            (recur (vec (rest lns)) sa)))))))
+
+(defn parse-delimited-array
+  "takes lines and returns an array of objects delimited.
+  takes lines and a delimiter function
+  "
+  [lines dfn]
+  (let [delimiter (dfn (first lines))]
     (loop [lns lines ret []]
       (if (first lns)
-        (recur (drop-while (fn [x] (not (= (is-key? x)
-                                           delimiter)))
+        (recur (drop-delimited-array (fn [x] (= (dfn x)
+                                                delimiter))
                            (rest lns))
                (conj ret
                      (parse-lines
                       (cons (first lns)
-                            (take-while (fn [x]
-                                          (not (= (is-key? x)
-                                                  delimiter)))
-                                        (rest lns))))))
+                            (take-delimited-array (fn [x]
+                                                    (= (dfn x)
+                                                       delimiter))
+                                                  (rest lns))))))
                ret))))
 
 (defn parse-item-array
@@ -193,62 +225,66 @@
   (let [l (drop-while (fn [x]
                         (and
                          (not (is-key? x))
-                         (not (is-item? x))))
+                         (not (is-item? x))
+                         (not (is-subarray? x))))
                       lines)]
     (if (first l)
       (if (is-key? (first l))
-        (parse-key-array l)
-        (parse-item-array l))
+        (parse-delimited-array l is-key?)
+        (if (is-item? (first l))
+          (parse-item-array l)
+          (parse-delimited-array l is-array?)))
       [])))
 
 (defn take-array
   "takes array while escape is not met"
   [lines]
   (loop [l lines sa 0 ret []]
-    (let [a (is-array? (first l))]
-      (if (not a)
-        (recur (rest l) sa (conj ret (first l)))
-        (if (and
-             (not (= a ""))
-             (not (.startsWith a ".")))
-          ret
-          (if (= a "")
-            (if (= sa 0)
-              ret
-              (recur (rest l) (- sa 1) (conj ret (first l))))
-            (recur (rest l) (+ sa 1) (conj ret (first l)))))))))
+    (if (empty? l)
+      ret
+      (let [a (is-array? (first l))]
+        (if (not a)
+          (if (is-scope? (first l))
+            ret
+            (recur (rest l) sa (conj ret (first l))))
+          (if (and
+               (not (= a ""))
+               (not (.startsWith a ".")))
+            ret
+            (if (= a "")
+              (if (= sa 0)
+                ret
+                (recur (rest l) (- sa 1) (conj ret (first l))))
+              (recur (rest l) (+ sa 1) (conj ret (first l))))))))))
 
 (defn drop-array
   "drops until escape is met"
   [lines]
   (loop [l lines sa 0]
-    (let [a (is-array? (first l))]
-      (if (not a)
-        (recur (vec (rest l)) sa)
-        (if (and
-             (not (= a ""))
-             (not (.startsWith a ".")))
-          l
-          (if (= a "")
-            (if (= sa 0)
-              l
-              (recur (vec (rest l)) (- sa 1)))
-            (recur (vec (rest l)) (+ sa 1))))))))
+    (if (empty? l)
+      []
+      (let [a (is-array? (first l))]
+        (if (not a)
+          (if (is-scope? (first l))
+            l
+            (recur (vec (rest l)) sa))
+          (if (and
+               (not (= a ""))
+               (not (.startsWith a ".")))
+            l
+            (if (= a "")
+              (if (= sa 0)
+                l
+                (recur (vec (rest l)) (- sa 1)))
+              (recur (vec (rest l)) (+ sa 1)))))))))
     
 (defn process-array
   "processes a scope. Takes lines and an object.
   Returns a vector of lines and an object"
   [lines obj]
   (let [array (is-array? (first lines))
-        matchfn (fn [x] (or (and
-                             (not (is-scope? x))
-                             (not (is-array? x)))
-                            (and
-                             (is-subarray? x))))
-        content (take-while matchfn
-                            (rest lines))
-        rlines (drop-while matchfn
-                           (rest lines))]
+        content (take-array (rest lines))
+        rlines (drop-array (rest lines))]
     (if (= "" array)
       [(rest lines) obj]
       [rlines (expand-scopes array obj (parse-array content))])))

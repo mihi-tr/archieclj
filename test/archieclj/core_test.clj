@@ -277,7 +277,7 @@
              * two
              []
              [.key]
-             * tree
+             * three
              * four
              []
              []
@@ -305,6 +305,15 @@
              \\:end
              :end")
            {:key "an\n:end"}))))
+
+(deftest escape-backslash-2
+  (testing "escape backlsash in item list"
+    (is (= (parse
+            "[token]
+             * an
+             \\:end
+             :end")
+           {:token ["an\n:end"]}))))
 
 ;; is-token?
 
@@ -620,6 +629,11 @@
     (is (= (expand-scopes "token.key2" {:token {:key "value"}}
                           "value2")
            {:token {:key "value", :key2 "value2"}}))))
+
+(deftest expand-scopes-5
+  (testing "expanding scope with leading dot"
+    (is (= (expand-scopes ".token" {} "value")
+           {:token "value"}))))
 
 ;; take-array
 
