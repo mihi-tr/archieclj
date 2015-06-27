@@ -143,8 +143,20 @@
 (defn parse-key-array
   "takes lines and returns an array of objects"
   [lines]
-  []
-  )
+  (let [delimiter (is-key? (first lines))]
+    (loop [lns lines ret []]
+      (if (first lns)
+        (recur (drop-while (fn [x] (not (= (is-key? x)
+                                           delimiter)))
+                           (rest lns))
+               (conj ret
+                     (parse-lines
+                      (cons (first lns)
+                            (take-while (fn [x]
+                                          (not (= (is-key? x)
+                                                  delimiter)))
+                                        (rest lns))))))
+               ret))))
 
 (defn parse-item-array
   "takes lines and returns an array of items"
