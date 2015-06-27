@@ -3,6 +3,7 @@
 
 
 
+(declare process-scope)
 
 (defn split-lines
   "Splits a text file to multiple lines"
@@ -69,34 +70,72 @@
       [(rest lines) (assoc obj (keyword k) v)])))
 
 (defn skip
-  "skips the lines until :endskip"
-  [lines obj]
-  [(rest (drop-while (fn [x] (not (is-command? x "endskip")))
-               lines)) obj])
-
+  "skips all lines from :skip to :endskip. Returns unskipped lines"
+  [lines]
+  (loop [lns lines r []]
+    (if (seq lns)
+      (recur 
+       (rest (drop-while (fn [x] (not (is-command? x "endskip")))
+                         lns))
+       (apply conj r (take-while (fn [x] (not (is-command? x "skip")))
+                         lns)))
+      r)))
+                              
 (defn parse-line
   "Parses a line and returns a changed returns an array of the remaining lines and the modified return object"
   [lines obj]
-  (if (< (count lines) 1)
+  (if (empty? lines)
     [[] obj]
-    (let [tokens [[is-key? parse-key]
-                  [(fn [x] (is-command? x "skip")) skip]
+    ;; tokens below declares the parsing behavior for lines
+    ;; the first is a matching function. If it returns true
+    ;; the second function will be called with lines and obj
+    (let [tokens [
+                  [is-key? parse-key] ; parse keys
+                  [is-scope? process-scope] ; process scopes
                   ]]
       (reduce (fn [x y] (if ((get y 0) (first lines))
                           ((get y 1) lines obj)
                           x))
               [(rest lines) obj] tokens))))
 
+(defn parse-lines
+  "parses lines and returns a map. Takes lines and optionally a hashmap.
+  Returns a hashmap with the parsed lines"
+  ([lines]
+   (parse-lines lines {}))
+  ([lines obj]
+   (loop [l lines ret obj]
+     (if (seq l)
+       (let [po (parse-line (drop-while (fn [x]
+                                          (not (is-token? x)))
+                                        l) ret)
+             lns (get po 0)
+             rt (get po 1)]
+          (recur lns rt))
+       ret))))
+     
+(defn process-scope
+  "processes a scope. Takes lines and an object.
+  returns a vector of lines and an object"
+  [lines obj]
+  (let [scope (keyword (is-scope? (first lines)))
+        matchfn (fn [x] (and
+                         (not (is-scope? x))
+                         (not (is-array? x))))
+        content (take-while matchfn
+                            (rest lines))
+        rlines (rest (drop-while matchfn
+                                 (rest lines)))
+        sco (scope obj {})]
+    [rlines (assoc obj scope (parse-lines content sco))])) 
+
 (defn parse
   "Parses an Archieml string and returns a map"
   [x]
-  (loop [lines (take-while (fn [d] (not (is-command? d "ignore")))
-                           (split-lines x))
-         ret {}]
-    (if (< (count lines) 1) ret
-        (let [po (parse-line (drop-while (fn [x]
-                                           (not (is-token? x)))
-                                         lines) ret)
-              lns (get po 0)
-              rt (get po 1)]
-          (recur lns rt)))))
+  (parse-lines
+   (skip
+    (take-while
+     (fn [d] (not (is-command? d "ignore"))) ;take up to :ignore
+     (split-lines x))))) ; split lines
+         
+    

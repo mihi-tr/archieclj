@@ -284,10 +284,49 @@
 ;; skip
 
 (deftest skip-test-1
-  (testing "skipping [':skip' 'comment' ':endskip' 'one']"
-    (is (= (first
-            (get
-             (skip [":skip" "comment" ":endskip" "one"] {})
-             0))
-           "one"))))
+  (testing "skipping ['zero' ':skip' 'comment' ':endskip' 'one']"
+    (is (= 
+         (skip ["zero" ":skip" "comment" ":endskip" "one"])
+         ["zero" "one"]))))
 
+(deftest skip-test-2
+  (testing "skipping multiple blocks"
+    (is (=
+         (skip ["zero" ":skip" "comment" ":endskip" "one"
+                ":skip" "another comment" ":endskip" "two"])
+         ["zero" "one" "two"]))))
+
+;; process-scope
+
+(deftest scope-processing-1
+  (testing "basic scope processing"
+    (is (= (get
+            (process-scope ["{token}" "key: value"] {})
+            1)
+           {:token {:key "value"}}))))
+
+(deftest scope-processing-2
+  (testing "switching-scopes"
+    (is (= (get
+            (process-scope ["{token}" "key: value"
+                            "{token2}" "key2: value2"]
+                           {})
+            1)
+           {:token {:key "value"}}))))
+
+(deftest scope-processing-3
+  (testing "switching to main scope"
+    (is (= (get
+            (process-scope ["{token}" "key: value"
+                            "{}" "key2: value2"]
+                           {})
+            1)
+           {:token {:key "value"}}))))
+
+(deftest scope-processing-4
+  (testing "switching to array"
+    (is (= (get
+            (process-scope ["{token}" "key: value" "[]" "key2: value2"]
+                           {})
+            1)
+           {:token {:key "value"}}))))
