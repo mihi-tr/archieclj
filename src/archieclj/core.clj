@@ -132,10 +132,10 @@
 (defn parse
   "Parses an Archieml string and returns a map"
   [x]
-  (parse-lines
-   (skip
-    (take-while
-     (fn [d] (not (is-command? d "ignore"))) ;take up to :ignore
-     (split-lines x))))) ; split lines
+  (->> x
+      split-lines
+      (take-while (fn [d] (not (is-command? d "ignore"))))
+      skip
+      parse-lines))
          
     
