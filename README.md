@@ -13,9 +13,8 @@ This is a Clojure parser for Archieml.
 
 In leinigen add
 
-```clojure
-[archieclj 0.1.0]
-```
+[![Clojars
+Project](http://clojars.org/archieclj/latest-version.svg)](http://clojars.org/archieclj)
 
 Then use
 
