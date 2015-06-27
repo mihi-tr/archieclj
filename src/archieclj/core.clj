@@ -54,6 +54,24 @@
   (let [tokens [is-command? is-key? is-array? is-scope? is-item?]]
     (boolean (reduce (fn [r t] (or (t x) r)) false tokens))))
 
+(defn expand-scopes
+  "expands the scopes for scoped tokens and sets the value"
+  [t obj value]
+  (let [s (string/split t #"\." 2)
+        kw (keyword (first s))]
+    (if (get s 1)
+      (assoc obj kw (expand-scopes (get s 1) (get-map obj kw) value))
+      (assoc obj kw value))))
+
+(defn get-expanded-map
+  "expands a scope and returns the map at the end"
+  [t obj]
+  (let [s (string/split t #"\." 2)
+        kw (keyword (first s))]
+    (if (get s 1)
+      (get-expanded-map (get s 1) (get-map obj kw))
+      (get-map obj kw))))
+
 (defn parse-key
   "parses a line with a key and amends the object.
   returns a vector with the rest of the lines as the first object and the object as the second."
@@ -65,15 +83,15 @@
     (if (and (first totoken)
              (is-command? (first totoken) "end"))
       [(rest totoken)
-       (assoc obj
-              (keyword k)
-              (string/join
-               "\n"
-               (cons v
-                     (take-while (fn [x]
-                                   (not (is-command? x "end")))
-                                 (rest lines)))))]
-      [(rest lines) (assoc obj (keyword k) v)])))
+       (expand-scopes k
+                      obj
+                      (string/join
+                       "\n"
+                       (cons v
+                             (take-while (fn [x]
+                                           (not (is-command? x "end")))
+                                         (rest lines)))))]
+      [(rest lines) (expand-scopes k obj v)])))
 
 (defn skip
   "skips all lines from :skip to :endskip. Returns unskipped lines"
@@ -124,7 +142,7 @@
   "processes a scope. Takes lines and an object.
   returns a vector of lines and an object"
   [lines obj]
-  (let [scope (keyword (is-scope? (first lines)))
+  (let [scope (is-scope? (first lines))
         matchfn (fn [x] (and
                          (not (is-scope? x))
                          (not (is-array? x))))
@@ -132,10 +150,10 @@
                             (rest lines))
         rlines (drop-while matchfn
                                  (rest lines))
-        sco (get-map obj scope)]
-    (if (= (keyword "") scope)
+        sco (get-expanded-map scope obj)]
+    (if (= "" scope)
       [(rest lines) obj]
-      [rlines (assoc obj scope (parse-lines content sco))])))
+      [rlines (expand-scopes scope obj (parse-lines content sco))])))
 
 (defn parse
   "Parses an Archieml string and returns a map"

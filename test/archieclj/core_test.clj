@@ -141,7 +141,119 @@
             "{to.ken}
              key: value")
            {:to {:ken {:key "value"}}}))))
-           
+
+(deftest appending-scoped-scopes
+  (testing "appending scoped scopes"
+    (is (= (parse
+            "{to.ken}
+             key: value
+             {}
+             {to.ken}
+             key2: value2")
+           {:to {:ken {:key "value", :key2 "value2"}}}))))
+
+(deftest item-array
+  (testing "simple item array"
+    (is (= (parse
+            "[token]
+             * one
+             * two")
+           {:token ["one" "two"]}))))
+
+(deftest key-array
+  (testing "simple key array"
+    (is (= (parse
+            "[token]
+            key: value
+            key: value2
+            ")
+           {:token [{:key "value"} {:key "value2"}]}))))
+
+(deftest key-array-2
+  (testing "bigger key array"
+    (is (= (parse
+            "[token]
+             key: value
+             key2: value2
+             key: another
+             key2: item")
+           {:token [{:key "value", :key2 "value2"},
+                    {:key "another", :key2 "item"}]}))))
+
+(deftest switching-list
+  (testing "switching list"
+    (is (= (parse
+            "[token]
+             * one
+             * two
+             [token2]
+             * three
+             * four")
+           {:token ["one" "two"], :token2 ["three" "four"]}))))
+
+(deftest multi-line-item
+  (testing "multi line item"
+    (is (= (parse
+            "[token]
+             * multi
+             line
+             item
+             :end")
+           {:token ["multi\nline\nitem"]}))))
+
+(deftest switching-list-to-scope
+  (testing "switching from array to scope"
+    (is (= (parse
+            "[token]
+            * one
+            * two
+            {token2}
+            key: value")
+           {:token ["one" "two"], :token2 {:key "value"}}))))
+
+(deftest list-to-main-scope
+  (testing "switching list to main scope"
+    (is (= (parse
+            "[token]
+            key: value
+            key: value2
+            []
+            key: main")
+           {:token [{:key "value"} {:key "value2"}],
+            :key "main"}))))
+
+(deftest scoped-list
+  (testing "scoped array"
+    (is (= (parse
+            "[to.ken]
+             * one
+             * two")
+           {:to {:ken ["one" "two"]}}))))
+
+(deftest subarray
+  (testing "subarray"
+    (is (= (parse
+            "[token]
+             key: value
+             [.subarray]
+             * one
+             * two")
+           {:token [{:key "value" :subarray ["one" "two"]}]}))))
+
+(deftest subarray-escape
+  (testing "subarray escape"
+    (is (= (parse
+            "[token]
+             key: value
+             [.subarray]
+             key: sub
+             key: array
+             []
+             key: main array")
+           {:token [{:key "value" :subarray [{:key "sub"}
+                                             {:key "array"}]}
+                    {:key "main array"}]}))))
+
 ;; is-token?
 
 (deftest token-detection-1
@@ -437,3 +549,26 @@
   (testing "getting a map from a non map key"
     (is (= (get-map {:token "value"} :token)
            {}))))
+
+;; expand-scopes
+
+(deftest expand-scopes-1
+  (testing "Expanding a simple scope"
+    (is (= (expand-scopes "token.key" {} "value")
+           {:token {:key "value"}}))))
+
+(deftest expand-scopes-2
+  (testing "expanding without scope"
+    (is (= (expand-scopes "key" {} "value")
+           {:key "value"}))))
+
+(deftest expand-scopes-3
+  (testing "expanding multiple scopes"
+    (is (= (expand-scopes "t.o.k.e.n" {} "value")
+           {:t {:o {:k {:e {:n "value"}}}}}))))
+
+(deftest expand-scopes-4
+  (testing "expanding to a preexisting scope"
+    (is (= (expand-scopes "token.key2" {:token {:key "value"}}
+                          "value2")
+           {:token {:key "value", :key2 "value2"}}))))
