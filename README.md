@@ -1,14 +1,38 @@
 # archieclj
 
-A Clojure parser for [archieml](http://archieml.org)
+A Clojure parser for [archieml](http://archieml.org).
+
+Archieml is a markup language designed to be written by humans for
+computers. It is very forgiving and highly welcoming. Developed at the New
+York Times its main audience are Journalists who do require to write
+structured data but do not want to bother with JSON or yaml. 
+
+This is a Clojure parser for Archieml. 
 
 ## Usage
 
 In leinigen add
 
 ```clojure
-[archieclj 0.0.1-SNAPSHOT]
+[archieclj 0.1.0]
 ```
+
+Then use
+
+```clojure
+(require '[archieclj.core :as archieclj])
+
+archieclj/parse("key: value")
+```
+
+## Contribute
+
+Contributions are highly welcome! You can contribute by
+
+* Using the library and providing feedback in github issues
+* Writing better Documentation
+* Fixing bugs and Issues 
+* Discussing Issues and solving them (some might not need code)
 
 ## License
 

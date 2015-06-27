@@ -1,4 +1,4 @@
-(defproject archieclj "0.1.0-SNAPSHOT"
+(defproject archieclj "0.1.0"
   :description "An archieml parser for clojure"
   :url "https://github.com/mihi-tr/archieclj"
   :license {:name "Eclipse Public License"
