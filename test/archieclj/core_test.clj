@@ -52,6 +52,50 @@
             ")
            {:key "value"}))))
 
+(deftest basic-scope
+  (testing "basic scope parsing"
+    (is (= (parse
+            "{token}
+             key: value")
+           {:token {:key "value"}}))))
+
+(deftest basic-scope-2
+  (testing "basic scope parsing"
+    (is (= (parse
+            "key: value
+             {token}
+             key2: value2")
+           {:key "value", :token {:key2 "value2"}}))))
+
+(deftest scope-switching
+  (testing "scope-switching"
+    (is (= (parse
+            "{token}
+             key: value
+             {token2}
+             key2: value2")
+           {:token {:key "value"}, :token2 {:key2 "value2"}}))))
+
+(deftest back-to-main-scope
+  (testing "switching-back-to-main-scope"
+    (is (= (parse
+            "{token}
+             key: value
+             {}
+             key2: value2")
+           {:token {:key "value"}, :key2 "value2"}))))
+
+(deftest skipping-in-scope
+  (testing "skipping in scope"
+    (is (= (parse
+            "{token}
+             key: value
+             :skip
+             {}
+             :endskip
+             key2: value2")
+           {:token {:key "value", :key2 "value2"}}))))
+
 ;; is-token?
 
 (deftest token-detection-1

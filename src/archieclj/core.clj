@@ -124,10 +124,12 @@
                          (not (is-array? x))))
         content (take-while matchfn
                             (rest lines))
-        rlines (rest (drop-while matchfn
-                                 (rest lines)))
+        rlines (drop-while matchfn
+                                 (rest lines))
         sco (scope obj {})]
-    [rlines (assoc obj scope (parse-lines content sco))])) 
+    (if (= (keyword "") scope)
+      [(rest lines) obj]
+      [rlines (assoc obj scope (parse-lines content sco))])))
 
 (defn parse
   "Parses an Archieml string and returns a map"
