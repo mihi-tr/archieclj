@@ -12,6 +12,14 @@
   (map string/trim
        (string/split-lines x)))
 
+(defn unescape
+  "unescapes a line if it starts with backslash"
+  [x]
+  (let [m (re-find #"^\\(.*)" x)]
+    (if m
+      (get m 1)
+      x)))
+
 (defn get-map
   "takes a map and a keyword. Returns the map on the keyword if it exists. otherwise returns an empty map."
   [m kw]
@@ -98,9 +106,11 @@
                       (string/join
                        "\n"
                        (cons v
-                             (take-while (fn [x]
-                                           (not (is-command? x "end")))
-                                         (rest lines)))))]
+                             (map unescape
+                                  (take-while
+                                   (fn [x]
+                                     (not (is-command? x "end")))
+                                   (rest lines))))))]
       [(rest lines) (expand-scopes k obj v)])))
 
 (defn skip
@@ -215,7 +225,7 @@
           (recur (rest al) (conj ret
                                  (string/join
                                   "\n"
-                                  (cons v ltn))))
+                                  (cons v (map unescape ltn)))))
           (recur al (conj ret v))))
       ret)))
 

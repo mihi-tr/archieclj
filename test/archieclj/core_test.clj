@@ -671,3 +671,21 @@
                         "two" "[]" "not yet"
                         "[]" "now"])
            ["[]" "now"]))))
+
+
+;; unescape
+
+(deftest unescape-1
+  (testing "unescaping not escaped string"
+    (is (= (unescape "test")
+           "test"))))
+
+(deftest unescape-2
+  (testing "unescaping escaped string"
+    (is (= (unescape "\\test")
+           "test"))))
+
+(deftest unescape-3
+  (testing "unescaping backslash"
+    (is (= (unescape "\\\\")
+           "\\"))))
