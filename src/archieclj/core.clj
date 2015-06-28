@@ -1,8 +1,6 @@
 (ns archieclj.core)
 (require '[clojure.string :as string])
 
-
-
 (declare process-scope)
 (declare process-array)
 
@@ -90,6 +88,29 @@
       (get-expanded-map (get s 1) (get-map obj kw))
       (get-map obj kw))))
 
+(defn is-multiline-value?
+  "takes a set of lines and returns true if the lines are
+  part of a multi-line value (ends in :end)"
+  ([lines]
+   (is-multiline-value? lines is-token?))
+  ([lines mfn]
+   (let [ca (drop-while
+             (fn [x] (not (or
+                           (is-command? x "end")
+                           (mfn x))))
+             lines)]
+     (and (first ca)
+          (is-command? (first ca) "end")))))
+
+(defn read-multiline-value
+  "takes a value and lines and joins them together to a multiline value"
+  [v lines]
+  (string/join "\n"
+               (cons v (map unescape
+                            (take-while (fn [x]
+                                          (not
+                                           (is-command? x "end")))
+                                     lines)))))
 (defn parse-key
   "parses a line with a key and amends the object.
   returns a vector with the rest of the lines as the first object and the object as the second."
@@ -98,19 +119,11 @@
         k (get m 1)
         v (get m 2)
         totoken (drop-while (fn[x] (not (is-token? x))) (rest lines))]
-    (if (and (first totoken)
-             (is-command? (first totoken) "end"))
+    (if (is-multiline-value? (rest lines))
       [(rest totoken)
        (expand-scopes k
                       obj
-                      (string/join
-                       "\n"
-                       (cons v
-                             (map unescape
-                                  (take-while
-                                   (fn [x]
-                                     (not (is-command? x "end")))
-                                   (rest lines))))))]
+                      (read-multiline-value v (rest lines)))]
       [(rest lines) (expand-scopes k obj v)])))
 
 (defn skip
@@ -122,7 +135,7 @@
        (rest (drop-while (fn [x] (not (is-command? x "endskip")))
                          lns))
        (apply conj r (take-while (fn [x] (not (is-command? x "skip")))
-                         lns)))
+                                 lns)))
       r)))
                               
 (defn parse-line
@@ -151,9 +164,10 @@
   ([lines obj]
    (loop [l lines ret obj]
      (if (seq l)
-       (let [po (parse-line (drop-while (fn [x]
-                                          (not (is-token? x)))
-                                        l) ret)
+       (let [po (parse-line
+                 (drop-while (fn [x] (not (is-token? x)))
+                             l)
+                 ret)
              lns (get po 0)
              rt (get po 1)]
           (recur lns rt))
@@ -197,16 +211,14 @@
   (let [delimiter (dfn (first lines))]
     (loop [lns lines ret []]
       (if (first lns)
-        (recur (drop-delimited-array (fn [x] (= (dfn x)
-                                                delimiter))
-                           (rest lns))
+        (let [matchfn (fn [x] (= (dfn x) delimiter))]
+          (recur (drop-delimited-array matchfn
+                                       (rest lns))
                (conj ret
                      (parse-lines
                       (cons (first lns)
-                            (take-delimited-array (fn [x]
-                                                    (= (dfn x)
-                                                       delimiter))
-                                                  (rest lns))))))
+                            (take-delimited-array matchfn
+                                                  (rest lns)))))))
                ret))))
 
 (defn parse-item-array
@@ -215,13 +227,12 @@
   (loop [lns lines ret []]
     (if (first lns)
       (let [v (get (re-find #"^* (.*)" (first lns)) 1)
-            matchfn (fn [x] (and
-                             (not (is-item? x))
-                             (not (is-command? x "end"))))
+            matchfn (fn [x] (not (or
+                                  (is-item? x)
+                                  (is-command? x "end"))))
             ltn (take-while matchfn (rest lns))
             al (drop-while matchfn (rest lns))]
-        (if (and (first al)
-                 (is-command? (first al) "end"))
+        (if (is-multiline-value? (rest lns) is-item?)
           (recur (rest al) (conj ret
                                  (string/join
                                   "\n"
@@ -257,9 +268,9 @@
           (if (is-scope? (first l))
             ret
             (recur (rest l) sa (conj ret (first l))))
-          (if (and
-               (not (= a ""))
-               (not (.startsWith a ".")))
+          (if (not (or 
+                    (= a "")
+                    (.startsWith a ".")))
             ret
             (if (= a "")
               (if (= sa 0)
@@ -278,9 +289,9 @@
           (if (is-scope? (first l))
             l
             (recur (vec (rest l)) sa))
-          (if (and
-               (not (= a ""))
-               (not (.startsWith a ".")))
+          (if (not (or
+                    (= a "")
+                    (.startsWith a ".")))
             l
             (if (= a "")
               (if (= sa 0)
@@ -304,9 +315,9 @@
   returns a vector of lines and an object"
   [lines obj]
   (let [scope (is-scope? (first lines))
-        matchfn (fn [x] (and
-                         (not (is-scope? x))
-                         (not (is-array? x))))
+        matchfn (fn [x] (not (or
+                              (is-scope? x)
+                              (is-array? x))))
         content (take-while matchfn
                             (rest lines))
         rlines (drop-while matchfn
