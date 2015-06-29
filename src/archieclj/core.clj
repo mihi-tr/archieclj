@@ -110,17 +110,23 @@
                             (take-while (fn [x]
                                           (not
                                            (is-command? x "end")))
-                                     lines)))))
+                                        lines)))))
+
+(defn drop-multiline-value
+  "takes lines and returns the lines after :end"
+  [lines]
+  (rest (drop-while (fn [x] (not (is-command? x "end")))
+                   lines)))
+
 (defn parse-key
   "parses a line with a key and amends the object.
   returns a vector with the rest of the lines as the first object and the object as the second."
   [lines obj]
   (let [m (re-find #"^([a-zA-Z0-9-_.]+):[ ]{0,1}(.*)" (first lines))
         k (get m 1)
-        v (get m 2)
-        totoken (drop-while (fn[x] (not (is-token? x))) (rest lines))]
+        v (get m 2)]
     (if (is-multiline-value? (rest lines))
-      [(rest totoken)
+      [(drop-multiline-value (rest lines))
        (expand-scopes k
                       obj
                       (read-multiline-value v (rest lines)))]
@@ -226,18 +232,12 @@
   [lines]
   (loop [lns lines ret []]
     (if (first lns)
-      (let [v (get (re-find #"^* (.*)" (first lns)) 1)
-            matchfn (fn [x] (not (or
-                                  (is-item? x)
-                                  (is-command? x "end"))))
-            ltn (take-while matchfn (rest lns))
-            al (drop-while matchfn (rest lns))]
+      (let [v (get (re-find #"^* (.*)" (first lns)) 1)]
         (if (is-multiline-value? (rest lns) is-item?)
-          (recur (rest al) (conj ret
-                                 (string/join
-                                  "\n"
-                                  (cons v (map unescape ltn)))))
-          (recur al (conj ret v))))
+          (recur (drop-multiline-value (rest lns)) (conj ret
+                                 (read-multiline-value v (rest lns))))
+          (recur (drop-while (fn [x] (not (is-item? x))) (rest lns))
+                 (conj ret v))))
       ret)))
 
 (defn parse-array
